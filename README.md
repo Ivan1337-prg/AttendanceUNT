@@ -5,3 +5,9 @@
 - Eneojo Unwuchola
 - Roman Macias
 - Taron Osifo
+
+**Instructor**
+- Diana Rabah
+
+**TA**
+- Jordan Christopher Black
