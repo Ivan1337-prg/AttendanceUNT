@@ -3,11 +3,6 @@ from dbConnect import connect_to_postgres,test_postgres_connection
 app = FastAPI()
 
 
-    
-
-
-
-
 
 
 @app.get("/")
