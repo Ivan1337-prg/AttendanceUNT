@@ -5,19 +5,20 @@ from fastapi import HTTPException, Request
 from jose import JWTError, jwt
 
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALG = os.getenv("JWT_ALG")
 ACCESS_TOKEN_MINUTES = 60
 
 
 def get_jwt_settings():
-    if not JWT_SECRET or not JWT_ALG:
+    jwt_secret = os.getenv("JWT_SECRET")
+    jwt_alg = os.getenv("JWT_ALG")
+
+    if not jwt_secret or not jwt_alg:
         raise HTTPException(
             status_code=500,
             detail="JWT_SECRET and JWT_ALG must be set before using auth endpoints",
         )
 
-    return JWT_SECRET, JWT_ALG
+    return jwt_secret, jwt_alg
 
 
 def build_access_token(*, subject: str, teacher_id: str, name: str) -> str:
