@@ -1,0 +1,45 @@
+Project EduVision {
+  database_type: "PostgreSQL"
+  Note: "Current EduVision database schema."
+}
+
+Table teachers {
+  id uuid [pk, note: "Generated with gen_random_uuid()"]
+  name text [not null]
+  email text [unique]
+  password text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table students {
+  id uuid [pk, note: "Generated with gen_random_uuid()"]
+  name text [not null]
+  student_code text [unique]
+  face_image bytea
+  face_image_filename text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table class_sessions {
+  id uuid [pk, note: "Generated with gen_random_uuid()"]
+  teacher_id uuid [not null, ref: > teachers.id]
+  start_time timestamp [default: `CURRENT_TIMESTAMP`]
+  end_time timestamp
+  status text [not null, default: 'active']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Note: "Only one active session is allowed per teacher through a partial unique index."
+}
+
+Table attendance {
+  id uuid [pk, note: "Generated with gen_random_uuid()"]
+  student_id uuid [not null, ref: > students.id]
+  session_id uuid [not null, ref: > class_sessions.id]
+  first_check_in timestamp
+  fifteen_min_confirm timestamp
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (student_id, session_id) [unique]
+  }
+}

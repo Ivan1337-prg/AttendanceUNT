@@ -4,6 +4,7 @@ node_modules
 .vscode
 .pip-cache
 .tmp
+notes.md
 teacher-webapp/.env.local
 data
 !face-auth-service/data/
