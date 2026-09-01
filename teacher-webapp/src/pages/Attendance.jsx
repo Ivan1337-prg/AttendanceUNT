@@ -3,7 +3,7 @@ import AttendanceTable from '../utils/AttendanceTable.jsx'
 import Cards from '../components/cards.jsx'
 
 
-function Attendance({ attendance, session, sessionLoading, sessionMessage, setPage, setAttendance }) {
+function Attendance({ attendance, session, sessionLoading, sessionMessage, setAttendance }) {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState('view')
 

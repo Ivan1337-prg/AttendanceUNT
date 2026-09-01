@@ -448,6 +448,162 @@ body {
   font-weight: 600;
 }
 
+.location-form {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #d1fae5;
+  border-radius: 16px;
+  background: #f8fffb;
+}
+
+.location-form h3 {
+  margin: 0 0 16px;
+  color: #065f46;
+}
+
+.location-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.location-field {
+  display: grid;
+  gap: 7px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.location-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #a7f3d0;
+  border-radius: 12px;
+  background: white;
+  color: #1f2937;
+  font-size: 15px;
+  outline: none;
+}
+
+.location-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);
+}
+
+.location-input:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.location-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.location-button {
+  margin-top: 0;
+}
+
+.location-accuracy {
+  color: #047857;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.location-accuracy.warning {
+  color: #b45309;
+}
+
+.location-accuracy.danger {
+  color: #b91c1c;
+}
+
+.location-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tooltip-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  outline: none;
+}
+
+.tooltip-info {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: help;
+}
+
+.field-tooltip {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  bottom: calc(100% + 10px);
+  display: none;
+  min-width: 250px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: white;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.field-tooltip span,
+.field-tooltip strong {
+  display: block;
+}
+
+.field-tooltip strong {
+  margin-bottom: 5px;
+}
+
+.tooltip-anchor:hover .field-tooltip,
+.tooltip-anchor:focus .field-tooltip,
+.tooltip-anchor:focus-within .field-tooltip {
+  display: block;
+}
+
+.location-message,
+.location-help {
+  margin: 10px 0 0;
+  font-size: 14px;
+}
+
+.location-message {
+  color: #065f46;
+}
+
+.location-help {
+  color: #64748b;
+}
+
+.Status-button:disabled,
+.Status-button:disabled:hover {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+}
+
 @media (max-width: 900px) {
   .sidebar {
     position: static;
@@ -469,6 +625,10 @@ body {
   .attendanceTable {
     display: block;
     overflow-x: auto;
+  }
+
+  .location-grid {
+    grid-template-columns: 1fr;
   }
 }
 .manage-button {

@@ -138,7 +138,7 @@ function App() {
     }
   }
 
-  async function handleStartSession() {
+  async function handleStartSession(sessionLocation) {
     if (!authToken) {
       setAuthError('Please log in first.')
       return
@@ -148,11 +148,14 @@ function App() {
     setSessionMessage('')
 
     try {
-      const data = await startSessionRequest(authToken)
+      const data = await startSessionRequest(authToken, sessionLocation)
       setSession({
         session_id: data.session_id,
         status: data.status,
         start_time: data.start_time ?? session?.start_time ?? null,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        radius_meters: data.radius_meters,
       })
       setAttendance(data.attendance ?? [])
       setSessionMessage(data.message || 'Session started.')
@@ -234,7 +237,6 @@ function App() {
             session={session}
             sessionLoading={sessionLoading}
             sessionMessage={sessionMessage}
-            setPage={setPage}
             setAttendance={setAttendance}
           />
         )}
