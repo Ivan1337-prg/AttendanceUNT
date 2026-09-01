@@ -53,7 +53,7 @@ def fetch_session_attendance_rows(db_cursor, session_id: str):
 def ensure_session_exists_and_active(db_cursor, session_id: str):
     db_cursor.execute(
         """
-        SELECT id, status
+        SELECT id, status, latitude, longitude, radius_meters
         FROM class_sessions
         WHERE id = %s
         """,

@@ -21,7 +21,7 @@ async function request(path, options = {}) {
         ...(options.headers || {}),
       },
     })
-  } catch (error) {
+  } catch {
     throw new Error(`Cannot reach backend at ${API_BASE_URL}`)
   }
 
@@ -71,9 +71,10 @@ export function getCurrentSession(token) {
   })
 }
 
-export function startSessionRequest(token) {
+export function startSessionRequest(token, sessionLocation) {
   return request('/session/start-session', {
     method: 'POST',
+    body: JSON.stringify(sessionLocation),
     headers: {
       Authorization: `Bearer ${token}`,
     },

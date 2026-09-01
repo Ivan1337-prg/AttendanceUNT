@@ -29,9 +29,9 @@ def parse_student_identity(filename_stem):
 
 
 def connect_to_postgres():
-    
+
     load_dotenv()
-    try: 
+    try:
         connection_string = os.getenv("DB_CONNECTION")
         print('Connecting to the Psql database...')
         connection = psycopg2.connect(connection_string)
@@ -42,7 +42,7 @@ def connect_to_postgres():
         sys.exit(1)
 
 
-def bootstrap_db():  
+def bootstrap_db():
     conn = None
     try:
         conn = connect_to_postgres()
@@ -122,13 +122,40 @@ def bootstrap_db():
             """
         )
 
+        db_cursor.execute(
+            """
+            ALTER TABLE class_sessions
+            ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+            ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+            ADD COLUMN IF NOT EXISTS radius_meters INTEGER;
+             """
+        )
+
+        db_cursor.execute(
+               """
+               ALTER TABLE class_sessions
+               DROP CONSTRAINT IF EXISTS valid_latitude,
+               DROP CONSTRAINT IF EXISTS valid_longitude,
+               DROP CONSTRAINT IF EXISTS valid_radius,
+               ADD CONSTRAINT valid_latitude
+                   CHECK (latitude BETWEEN -90 AND 90),
+               ADD CONSTRAINT valid_longitude
+                   CHECK (longitude BETWEEN -180 AND 180),
+               ADD CONSTRAINT valid_radius
+                   CHECK (radius_meters > 0)
+               """
+          )
+
+
+
+
         seed_mock_students(db_cursor)
         seed_student_faces(db_cursor)
 
         conn.commit()
         conn.close()
         return True
-    
+
     except Exception as e:
         print("Database initialization failed:", e)
         if conn:
@@ -200,7 +227,3 @@ def seed_mock_students(db_cursor):
         """,
         MOCK_STUDENTS,
     )
-
-
-
-    

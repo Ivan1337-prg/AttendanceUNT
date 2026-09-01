@@ -8,7 +8,8 @@ import {
   Image,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { submitFaceValidation } from '../utils/api';
+import { getAttendanceErrorMessage, submitFaceValidation } from '../utils/api';
+import { getCurrentAttendanceLocation } from '../utils/location';
 
 const logoImage = require('../assets/EduVisionLogo.png');
 
@@ -54,7 +55,13 @@ const FaceScanScreen = ({ navigation, route }) => {
       }
 
       setIsCapturing(true);
-      setStatusMessage('Capturing and verifying face...');
+      setStatusMessage('Checking your current location...');
+
+      const location = await getCurrentAttendanceLocation();
+      const accuracyMessage = location.accuracy === null
+        ? 'Location found.'
+        : `Location found with ±${Math.round(location.accuracy)} meter accuracy.`;
+      setStatusMessage(`${accuracyMessage} Capturing face...`);
 
       if (!cameraRef.current) {
         setStatusMessage('Camera starting up. Try again.');
@@ -74,6 +81,8 @@ const FaceScanScreen = ({ navigation, route }) => {
         sessionId,
         studentCode,
         imageBlob: photoBlob,
+        latitude: location.latitude,
+        longitude: location.longitude,
       });
 
       if (!Array.isArray(serverResponse.attendance)) {
@@ -105,7 +114,7 @@ const FaceScanScreen = ({ navigation, route }) => {
         message: serverResponse.message,
       });
     } catch (error) {
-      setStatusMessage(error.message || 'We could not verify your face. Please try again.');
+      setStatusMessage(getAttendanceErrorMessage(error));
     } finally {
       setIsCapturing(false);
     }
