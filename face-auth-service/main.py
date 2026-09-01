@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import TeacherRegisterRequest, TeacherLoginRequest, StartSession
 from db import test_postgres_connection, connect_to_postgres, bootstrap_db
@@ -11,6 +11,7 @@ from attendance_utils import (
     seed_attendance_for_session,
 )
 from face_utils import compare_face_against_roster, is_confident_roster_match
+from location_utils import verify_student_is_within_session_radius
 import sys
 import uvicorn
 import bcrypt
@@ -245,7 +246,12 @@ async def get_session_attendance(session_id: str):
 
 
 @app.get("/session/{session_id}/student/{student_code}")
-async def validate_student_session(session_id: str, student_code: str):
+async def validate_student_session(
+    session_id: str,
+    student_code: str,
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+):
     conn = None
     db_cursor = None
 
@@ -263,9 +269,16 @@ async def validate_student_session(session_id: str, student_code: str):
             student_code=student_code,
         )
 
-        ensure_session_exists_and_active(db_cursor, session_id)
+        session_row = ensure_session_exists_and_active(db_cursor, session_id)
+        distance_meters = verify_student_is_within_session_radius(
+            student_latitude=latitude,
+            student_longitude=longitude,
+            session_latitude=session_row[2],
+            session_longitude=session_row[3],
+            allowed_radius_meters=session_row[4],
+        )
         log_student_auth_step(
-            "Session is active. Looking up student record.",
+            f"Session is active and student location is within range. distance_meters={distance_meters:.2f}",
             session_id=session_id,
             student_code=student_code,
         )
@@ -307,6 +320,11 @@ async def validate_student_session(session_id: str, student_code: str):
                 "fifteen_min_confirm": attendance_row[2].isoformat() if attendance_row and attendance_row[2] else None,
                 "status": "confirmed" if attendance_row and attendance_row[2] else "present" if attendance_row and attendance_row[1] else "pending",
             },
+            "location": {
+                "verified": True,
+                "distance_meters": round(distance_meters, 2),
+                "allowed_radius_meters": session_row[4],
+            },
         }
 
     except HTTPException as exc:
@@ -333,7 +351,13 @@ async def validate_student_session(session_id: str, student_code: str):
 
 
 @app.post("/session/{session_id}/validate/{student_code}")
-async def validate_student_face(session_id: str, student_code: str, request: Request):
+async def validate_student_face(
+    session_id: str,
+    student_code: str,
+    request: Request,
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+):
     conn = None
     db_cursor = None
 
@@ -357,9 +381,16 @@ async def validate_student_face(session_id: str, student_code: str, request: Req
             session_id=session_id,
             student_code=student_code,
         )
-        ensure_session_exists_and_active(db_cursor, session_id)
+        session_row = ensure_session_exists_and_active(db_cursor, session_id)
+        distance_meters = verify_student_is_within_session_radius(
+            student_latitude=latitude,
+            student_longitude=longitude,
+            session_latitude=session_row[2],
+            session_longitude=session_row[3],
+            allowed_radius_meters=session_row[4],
+        )
         log_student_auth_step(
-            "Session is active. Looking up student record.",
+            f"Session is active and student location is within range. distance_meters={distance_meters:.2f}",
             session_id=session_id,
             student_code=student_code,
         )
@@ -412,6 +443,11 @@ async def validate_student_face(session_id: str, student_code: str, request: Req
                 "student_name": student[1],
                 "best_match_student_code": best_match["student_code"] if best_match else None,
                 "best_match_student_name": best_match["student_name"] if best_match else None,
+                "location": {
+                    "verified": True,
+                    "distance_meters": round(distance_meters, 2),
+                    "allowed_radius_meters": session_row[4],
+                },
             }
 
         db_cursor.execute(
@@ -491,6 +527,11 @@ async def validate_student_face(session_id: str, student_code: str, request: Req
                     "student_code": student[2],
                     "student_name": student[1],
                     "seconds_until_confirmation": int(900 - seconds_since_first_check),
+                    "location": {
+                        "verified": True,
+                        "distance_meters": round(distance_meters, 2),
+                        "allowed_radius_meters": session_row[4],
+                    },
                 }
 
             db_cursor.execute(
@@ -527,6 +568,11 @@ async def validate_student_face(session_id: str, student_code: str, request: Req
             "student_name": student[1],
             "student_id": str(student[0]),
             "session_id": session_id,
+            "location": {
+                "verified": True,
+                "distance_meters": round(distance_meters, 2),
+                "allowed_radius_meters": session_row[4],
+            },
             "attendance": fetch_session_attendance_rows(db_cursor, session_id),
         }
 
