@@ -74,8 +74,13 @@ Documentation and Capstone course deliverables were a collective effort across t
 
 #### Roman Macias
 -Continued contributing to project documentation and Capstone II deliverables.
+
 -Reviewed and updated the Software Requirements Specification (SRS) to reflect the new student-specific face verification feature.
+
 -Helped update project requirements to make attendance and verification behavior more specific and testable.
+
 -Updated the Capstone Project Plan to reflect the approved Capstone II feature and its impact on scope, schedule, milestones, resources, and responsibilities.
+
 -Contributed to the team's change request and feasibility documentation for the proposed Capstone II changes.
+
 -Reviewed and helped maintain geolocation requirements based on the geolocation research and prototype developed during Capstone I.
