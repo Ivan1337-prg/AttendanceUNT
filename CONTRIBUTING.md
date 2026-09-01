@@ -37,7 +37,10 @@ Documentation and Capstone course deliverables were a collective effort across t
 #### Roman Macias
 
 - Researched geolocation, evaluated implementation approaches, and created a geolocation validation prototype.
-- Contributed extensively to documentation and helped structure project information and implementation plans.
+- Tested geolocation functionality and explored how location data could be used to validate student attendance.
+- Contributed extensively to project documentation and helped structure project information and implementation plans.
+- Contributed to the Software Requirements Specification (SRS), project planning, and other Capstone I documentation.
+- Participated in testing and helped document the expected attendance and geolocation workflow.
 - Established research groundwork that supported the later geolocation implementation.
 
 #### Taron Osifo
