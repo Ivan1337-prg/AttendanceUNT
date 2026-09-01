@@ -57,6 +57,22 @@ API_SERVER_URL=http://YOUR_COMPUTER_IP:<PORT>
 - `PORT`: port on which the backend listens.
 - `API_SERVER_URL`: backend address used by the mobile app. When the backend is running locally on your computer and the app is running on a physical phone, this should contain your computer's LAN IP and the same port configured by `PORT`.
 
+Find your computer's LAN IP while connected to the Wi-Fi you will use for testing:
+
+**macOS:**
+
+```bash
+ipconfig getifaddr en0
+```
+
+**Windows:**
+
+```powershell
+ipconfig
+```
+
+On Windows, use the `IPv4 Address` listed under the active Wi-Fi adapter. Ignore `127.0.0.1`. If you change Wi-Fi networks, check the IP again, update `API_SERVER_URL`, and restart Expo.
+
 For example:
 
 ```env

@@ -73,7 +73,10 @@ async function parseResponse(response) {
   const payload = await response.json();
 
   if (!response.ok) {
-    const error = new Error(payload.detail || payload.message || 'Request failed');
+    const detail = Array.isArray(payload?.detail)
+      ? payload.detail.map((item) => item.msg || JSON.stringify(item)).join(', ')
+      : payload?.detail;
+    const error = new Error(detail || payload.message || 'Request failed');
     error.status = response.status;
     throw error;
   }
@@ -104,18 +107,42 @@ async function requestWithFallback(path, options = {}) {
   throw lastError || new Error('Could not reach the backend. Make sure the backend is running on your laptop and restart Expo.');
 }
 
-export async function validateStudentSession({ sessionId, studentCode }) {
+function buildLocationQuery(latitude, longitude) {
+  return `latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`;
+}
+
+export function getAttendanceErrorMessage(error) {
+  if (error?.status === 403) {
+    return 'You are outside the allowed attendance area.';
+  }
+
+  if (error?.status === 409) {
+    return 'This session does not have a classroom location. Ask your teacher to create a new session.';
+  }
+
+  if (error?.status === 422) {
+    return 'Your location could not be validated. Retrieve your location and try again.';
+  }
+
+  return error?.message || 'Unable to complete attendance check-in.';
+}
+
+export async function validateStudentSession({ sessionId, studentCode, latitude, longitude }) {
+  const locationQuery = buildLocationQuery(latitude, longitude);
+
   return requestWithFallback(
-    `/session/${encodeURIComponent(sessionId)}/student/${encodeURIComponent(studentCode)}`,
+    `/session/${encodeURIComponent(sessionId)}/student/${encodeURIComponent(studentCode)}?${locationQuery}`,
     {
       headers: TUNNEL_BYPASS_HEADERS,
     },
   );
 }
 
-export async function submitFaceValidation({ sessionId, studentCode, imageBlob }) {
+export async function submitFaceValidation({ sessionId, studentCode, imageBlob, latitude, longitude }) {
+  const locationQuery = buildLocationQuery(latitude, longitude);
+
   return requestWithFallback(
-    `/session/${encodeURIComponent(sessionId)}/validate/${encodeURIComponent(studentCode)}`,
+    `/session/${encodeURIComponent(sessionId)}/validate/${encodeURIComponent(studentCode)}?${locationQuery}`,
     {
       method: 'POST',
       headers: {

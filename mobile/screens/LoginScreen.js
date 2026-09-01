@@ -12,7 +12,8 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { validateStudentSession } from '../utils/api';
+import { getAttendanceErrorMessage, validateStudentSession } from '../utils/api';
+import { getCurrentAttendanceLocation } from '../utils/location';
 
 const logoImage = require('../assets/EduVisionLogo.png');
 
@@ -33,9 +34,13 @@ const LoginScreen = ({ navigation }) => {
       }
 
       setIsLoading(true);
+      setError('');
+      const location = await getCurrentAttendanceLocation();
       const response = await validateStudentSession({
         studentCode: normalizedStudentCode,
         sessionId: normalizedSessionId,
+        latitude: location.latitude,
+        longitude: location.longitude,
       });
 
       navigation.navigate('FaceScan', {
@@ -43,8 +48,8 @@ const LoginScreen = ({ navigation }) => {
         studentName: response.student.student_name,
         sessionId: response.session_id,
       });
-    } catch (e) {
-      setError(e.message || 'Unable to validate your session.');
+    } catch (error) {
+      setError(getAttendanceErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
