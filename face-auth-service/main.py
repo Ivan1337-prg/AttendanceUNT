@@ -85,7 +85,7 @@ async def health():
 
 
 @app.post("/session/start-session")
-async def start_session(request: Request):
+async def start_session(session_request: StartSession, request: Request):
     conn = None
     db_cursor = None
 
@@ -114,14 +114,32 @@ async def start_session(request: Request):
 
         db_cursor.execute(
             """
-            INSERT INTO class_sessions (teacher_id, start_time, status)
-            VALUES (%s, CURRENT_TIMESTAMP, 'active')
-            RETURNING id, start_time, status
+            INSERT INTO class_sessions (
+                teacher_id,
+                start_time,
+                status,
+                latitude,
+                longitude,
+                radius_meters
+            )
+            VALUES (%s, CURRENT_TIMESTAMP, 'active', %s, %s, %s)
+            RETURNING id, start_time, status, latitude, longitude, radius_meters
             """,
-            (teacher_id,)
+            (
+                teacher_id,
+                session_request.latitude,
+                session_request.longitude,
+                session_request.radius_meters,
+            )
         )
 
         created_session = db_cursor.fetchone()
+        if created_session is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Session was created without returning session data",
+            )
+
         session_id = created_session[0]
         seed_attendance_for_session(db_cursor, session_id)
 
@@ -132,6 +150,9 @@ async def start_session(request: Request):
             "session_id": f"{session_id}",
             "start_time": created_session[1].isoformat() if created_session[1] else None,
             "status": created_session[2],
+            "latitude": created_session[3],
+            "longitude": created_session[4],
+            "radius_meters": created_session[5],
             "attendance": fetch_session_attendance_rows(db_cursor, session_id),
         }
 
