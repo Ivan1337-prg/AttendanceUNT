@@ -7,11 +7,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
+import { Camera } from 'react-native-vision-camera-face-detector';
 import { getAttendanceErrorMessage, submitFaceValidation } from '../utils/api';
 import { getCurrentAttendanceLocation } from '../utils/location';
 
 const logoImage = require('../assets/EduVisionLogo.png');
+const TURN_THRESHOLD_DEGREES = 12;
 
 function buildFriendlyStatusMessage(serverResponse) {
   if (serverResponse?.reason === 'student_id_face_mismatch') {
@@ -31,26 +33,90 @@ function buildFriendlyStatusMessage(serverResponse) {
 
 const FaceScanScreen = ({ navigation, route }) => {
   const { studentCode, studentName, sessionId } = route.params;
-  const [hasCameraPermission, requestPermission] = useCameraPermissions();
+  const device = useCameraDevice('front');
+  const photoOutput = usePhotoOutput({ quality: 0.9, qualityPrioritization: 'balanced' });
+  const { hasPermission, requestPermission, canRequestPermission } = useCameraPermission();
   const [statusMessage, setStatusMessage] = useState(`Ready to capture ${studentName}'s face.`);
+  const [liveness, setLiveness] = useState({
+    hasFace: false,
+    hasMultipleFaces: false,
+    sawLeftTurn: false,
+    sawRightTurn: false,
+  });
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    requestPermissions();
-  }, []);
-
-  const requestPermissions = async () => {
-    const cameraResult = await requestPermission();
-
-    if (!cameraResult.granted) {
-      setStatusMessage('Camera access denied.');
+    if (!hasPermission && canRequestPermission) {
+      requestPermission();
     }
+  }, [canRequestPermission, hasPermission, requestPermission]);
+
+  const livenessComplete = liveness.hasFace && liveness.sawLeftTurn && liveness.sawRightTurn;
+
+  const livenessMessage = (() => {
+    if (liveness.hasMultipleFaces) {
+      return 'Only one face should be visible.';
+    }
+
+    if (!liveness.hasFace) {
+      return 'Center your face in the frame.';
+    }
+
+    if (!liveness.sawLeftTurn || !liveness.sawRightTurn) {
+      return 'Turn your head one way, then the other.';
+    }
+
+    return 'Liveness check complete. Capture your face.';
+  })();
+
+  const handleFacesDetected = (faces) => {
+    setLiveness((currentLiveness) => {
+      if (!Array.isArray(faces) || faces.length === 0) {
+        if (!currentLiveness.hasFace && !currentLiveness.hasMultipleFaces) {
+          return currentLiveness;
+        }
+
+        return { ...currentLiveness, hasFace: false, hasMultipleFaces: false };
+      }
+
+      if (faces.length > 1) {
+        if (currentLiveness.hasMultipleFaces && !currentLiveness.hasFace) {
+          return currentLiveness;
+        }
+
+        return { ...currentLiveness, hasFace: false, hasMultipleFaces: true };
+      }
+
+      const yawAngle = faces[0]?.yawAngle || 0;
+      const nextLiveness = {
+        hasFace: true,
+        hasMultipleFaces: false,
+        sawLeftTurn: currentLiveness.sawLeftTurn || yawAngle <= -TURN_THRESHOLD_DEGREES,
+        sawRightTurn: currentLiveness.sawRightTurn || yawAngle >= TURN_THRESHOLD_DEGREES,
+      };
+
+      if (
+        currentLiveness.hasFace === nextLiveness.hasFace
+        && currentLiveness.hasMultipleFaces === nextLiveness.hasMultipleFaces
+        && currentLiveness.sawLeftTurn === nextLiveness.sawLeftTurn
+        && currentLiveness.sawRightTurn === nextLiveness.sawRightTurn
+      ) {
+        return currentLiveness;
+      }
+
+      return nextLiveness;
+    });
   };
 
   const handleCapture = async () => {
     try {
       if (isCapturing) {
+        return;
+      }
+
+      if (!livenessComplete) {
+        setStatusMessage('Complete the live face check before capturing.');
         return;
       }
 
@@ -63,18 +129,16 @@ const FaceScanScreen = ({ navigation, route }) => {
         : `Location found with ±${Math.round(location.accuracy)} meter accuracy.`;
       setStatusMessage(`${accuracyMessage} Capturing face...`);
 
-      if (!cameraRef.current) {
+      if (!cameraRef.current || !photoOutput) {
         setStatusMessage('Camera starting up. Try again.');
         return;
       }
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
-        exif: false,
-        skipProcessing: false,
-        shutterSound: false,
-      });
-      const photoResponse = await fetch(photo.uri);
+      const photo = await photoOutput.capturePhotoToFile(
+        { flashMode: 'off', enableShutterSound: false },
+        {},
+      );
+      const photoResponse = await fetch(`file://${photo.filePath}`);
       const photoBlob = await photoResponse.blob();
 
       const serverResponse = await submitFaceValidation({
@@ -120,7 +184,7 @@ const FaceScanScreen = ({ navigation, route }) => {
     }
   };
 
-  if (!hasCameraPermission) {
+  if (!hasPermission && canRequestPermission) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#166534" />
@@ -129,10 +193,18 @@ const FaceScanScreen = ({ navigation, route }) => {
     );
   }
 
-  if (!hasCameraPermission.granted) {
+  if (!hasPermission) {
     return (
       <View style={styles.messageContainer}>
         <Text style={styles.messageText}>Camera permission is required to capture your face.</Text>
+      </View>
+    );
+  }
+
+  if (!device) {
+    return (
+      <View style={styles.messageContainer}>
+        <Text style={styles.messageText}>No front camera was found on this device.</Text>
       </View>
     );
   }
@@ -158,12 +230,29 @@ const FaceScanScreen = ({ navigation, route }) => {
       </View>
 
       <View style={styles.scannerWrapper}>
-        <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFillObject}
+          device={device}
+          isActive
+          outputs={[photoOutput]}
+          cameraFacing="front"
+          performanceMode="fast"
+          onFacesDetected={handleFacesDetected}
+          onError={(error) => setStatusMessage(error?.message || 'Camera error. Try again.')}
+        />
+        <View style={styles.livenessOverlay}>
+          <Text style={styles.livenessText}>{livenessMessage}</Text>
+        </View>
       </View>
 
-      <Text style={styles.scanHint}>Align your face in the frame and capture one clear photo.</Text>
+      <Text style={styles.scanHint}>Move your head when prompted, then capture one clear photo.</Text>
 
-      <TouchableOpacity style={styles.scanButton} onPress={handleCapture} disabled={isCapturing}>
+      <TouchableOpacity
+        style={[styles.scanButton, (!livenessComplete || isCapturing) && styles.scanButtonDisabled]}
+        onPress={handleCapture}
+        disabled={isCapturing || !livenessComplete}
+      >
         {isCapturing ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
@@ -262,6 +351,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#d1fae5',
   },
+  livenessOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  livenessText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   scanHint: {
     color: '#475569',
     fontSize: 14,
@@ -282,6 +387,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
     marginBottom: 14,
+  },
+  scanButtonDisabled: {
+    backgroundColor: '#94a3b8',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   scanButtonText: {
     color: '#ffffff',

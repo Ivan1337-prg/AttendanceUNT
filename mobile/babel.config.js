@@ -11,7 +11,8 @@ module.exports = function(api) {
       ['module:react-native-dotenv', {
         moduleName: '@env',
         path: envPath,
-      }]
+      }],
+      'react-native-worklets/plugin',
     ]
   };
 };
