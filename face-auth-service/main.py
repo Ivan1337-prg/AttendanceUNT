@@ -1,10 +1,13 @@
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import TeacherRegisterRequest, TeacherLoginRequest, StartSession
 from db import test_postgres_connection, connect_to_postgres, bootstrap_db
 from auth_utils import build_access_token, get_teacher_id_from_request
 from attendance_utils import (
+    bind_attendance_device_token,
+    ensure_device_token_available_for_student,
     ensure_session_exists_and_active,
+    ensure_attendance_device_token_matches,
     fetch_session_attendance_rows,
     get_active_session_for_teacher,
     get_student_by_code,
@@ -21,6 +24,12 @@ import os
 
 load_dotenv()
 app = FastAPI()
+
+
+@app.on_event("startup")
+def ensure_database_schema_is_ready():
+    if not bootstrap_db():
+        raise RuntimeError("database bootstrap failed")
 
 
 def log_student_auth_step(message: str, *, session_id: str | None = None, student_code: str | None = None, student_name: str | None = None):
@@ -249,6 +258,7 @@ async def get_session_attendance(session_id: str):
 async def validate_student_session(
     session_id: str,
     student_code: str,
+    device_token: str = Header(..., alias="X-EduVision-Device-Token", min_length=1, max_length=128),
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
 ):
@@ -283,6 +293,7 @@ async def validate_student_session(
             student_code=student_code,
         )
         student = get_student_by_code(db_cursor, student_code)
+        ensure_device_token_available_for_student(db_cursor, session_id, student[0], device_token)
         log_student_auth_step(
             f"Student {student[1]} with code {student[2]} was accepted. Loading attendance record.",
             session_id=session_id,
@@ -292,13 +303,15 @@ async def validate_student_session(
 
         db_cursor.execute(
             """
-            SELECT id, first_check_in, fifteen_min_confirm
+            SELECT id, first_check_in, fifteen_min_confirm, device_token
             FROM attendance
             WHERE session_id = %s AND student_id = %s
             """,
             (session_id, student[0])
         )
         attendance_row = db_cursor.fetchone()
+        if attendance_row:
+            ensure_attendance_device_token_matches(attendance_row[3], device_token)
         log_student_auth_step(
             f"Student {student[1]} with code {student[2]} passed session validation successfully.",
             session_id=session_id,
@@ -355,6 +368,7 @@ async def validate_student_face(
     session_id: str,
     student_code: str,
     request: Request,
+    device_token: str = Header(..., alias="X-EduVision-Device-Token", min_length=1, max_length=128),
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
 ):
@@ -395,6 +409,7 @@ async def validate_student_face(
             student_code=student_code,
         )
         student = get_student_by_code(db_cursor, student_code)
+        ensure_device_token_available_for_student(db_cursor, session_id, student[0], device_token)
         log_student_auth_step(
             f"Student {student[1]} with code {student[2]} was accepted. Preparing roster face comparison.",
             session_id=session_id,
@@ -452,13 +467,16 @@ async def validate_student_face(
 
         db_cursor.execute(
             """
-            SELECT id, first_check_in, fifteen_min_confirm
+            SELECT id, first_check_in, fifteen_min_confirm, device_token
             FROM attendance
             WHERE session_id = %s AND student_id = %s
             """,
             (session_id, student[0])
         )
         attendance_row = db_cursor.fetchone()
+        if attendance_row:
+            ensure_attendance_device_token_matches(attendance_row[3], device_token)
+            bind_attendance_device_token(db_cursor, attendance_row[0], device_token)
         log_student_auth_step(
             f"Face matched successfully for student {student[1]} ({student[2]}). Checking attendance state.",
             session_id=session_id,
@@ -469,11 +487,11 @@ async def validate_student_face(
         if not attendance_row:
             db_cursor.execute(
                 """
-                INSERT INTO attendance (student_id, session_id, first_check_in)
-                VALUES (%s, %s, CURRENT_TIMESTAMP)
-                RETURNING id, first_check_in, fifteen_min_confirm
+                INSERT INTO attendance (student_id, session_id, device_token, first_check_in)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                RETURNING id, first_check_in, fifteen_min_confirm, device_token
                 """,
-                (student[0], session_id)
+                (student[0], session_id, device_token)
             )
             attendance_row = db_cursor.fetchone()
             message = "check-in successful"
@@ -489,7 +507,7 @@ async def validate_student_face(
                 UPDATE attendance
                 SET first_check_in = CURRENT_TIMESTAMP
                 WHERE id = %s
-                RETURNING id, first_check_in, fifteen_min_confirm
+                RETURNING id, first_check_in, fifteen_min_confirm, device_token
                 """,
                 (attendance_row[0],)
             )
@@ -539,7 +557,7 @@ async def validate_student_face(
                 UPDATE attendance
                 SET fifteen_min_confirm = CURRENT_TIMESTAMP
                 WHERE id = %s
-                RETURNING id, first_check_in, fifteen_min_confirm
+                RETURNING id, first_check_in, fifteen_min_confirm, device_token
                 """,
                 (attendance_row[0],)
             )

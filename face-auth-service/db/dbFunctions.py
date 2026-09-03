@@ -81,6 +81,7 @@ def bootstrap_db():
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         student_id UUID NOT NULL,
         session_id UUID NOT NULL,
+        device_token TEXT,
         first_check_in TIMESTAMP,
         fifteen_min_confirm TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -129,6 +130,19 @@ def bootstrap_db():
             ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
             ADD COLUMN IF NOT EXISTS radius_meters INTEGER;
              """
+        )
+        db_cursor.execute(
+            """
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS device_token TEXT
+            """
+        )
+        db_cursor.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS one_student_per_device_token_per_session
+            ON attendance (session_id, device_token)
+            WHERE device_token IS NOT NULL
+            """
         )
 
         db_cursor.execute(

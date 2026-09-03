@@ -5,6 +5,36 @@ const TUNNEL_BYPASS_HEADERS = {
   Accept: 'application/json',
   'bypass-tunnel-reminder': 'true',
 };
+const DEVICE_TOKEN_HEADER = 'X-EduVision-Device-Token';
+let deviceToken = null;
+
+function generateDeviceToken() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    const nibble = char === 'x' ? value : (value & 0x3) | 0x8;
+    return nibble.toString(16);
+  });
+}
+
+function getDeviceToken() {
+  if (!deviceToken) {
+    deviceToken = generateDeviceToken();
+  }
+
+  return deviceToken;
+}
+
+function buildAttendanceHeaders(headers = {}) {
+  return {
+    ...TUNNEL_BYPASS_HEADERS,
+    [DEVICE_TOKEN_HEADER]: getDeviceToken(),
+    ...headers,
+  };
+}
 
 function normalizeBaseUrl(url) {
   return url ? url.replace(/\/$/, '') : null;
@@ -116,6 +146,14 @@ export function getAttendanceErrorMessage(error) {
     return 'You are outside the allowed attendance area.';
   }
 
+  if (error?.status === 409 && error?.message === 'student already linked to another device for this session') {
+    return 'This student is already linked to another device for this session. Ask your teacher to start a new session.';
+  }
+
+  if (error?.status === 409 && error?.message === 'device already linked to another student for this session') {
+    return 'This device is already linked to another student for this session. Ask your teacher to start a new session.';
+  }
+
   if (error?.status === 409) {
     return 'This session does not have a classroom location. Ask your teacher to create a new session.';
   }
@@ -133,7 +171,7 @@ export async function validateStudentSession({ sessionId, studentCode, latitude,
   return requestWithFallback(
     `/session/${encodeURIComponent(sessionId)}/student/${encodeURIComponent(studentCode)}?${locationQuery}`,
     {
-      headers: TUNNEL_BYPASS_HEADERS,
+      headers: buildAttendanceHeaders(),
     },
   );
 }
@@ -145,10 +183,9 @@ export async function submitFaceValidation({ sessionId, studentCode, imageBlob, 
     `/session/${encodeURIComponent(sessionId)}/validate/${encodeURIComponent(studentCode)}?${locationQuery}`,
     {
       method: 'POST',
-      headers: {
-        ...TUNNEL_BYPASS_HEADERS,
+      headers: buildAttendanceHeaders({
         'Content-Type': imageBlob.type || 'image/jpeg',
-      },
+      }),
       body: imageBlob,
     },
   );

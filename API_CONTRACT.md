@@ -71,15 +71,19 @@ The mobile app sends the student's current coordinates on both session validatio
 
 ```text
 GET /session/{session_id}/student/{student_code}?latitude=<LATITUDE>&longitude=<LONGITUDE>
+X-EduVision-Device-Token: <FRONTEND_RUNTIME_UUID>
 ```
 
 ```text
 POST /session/{session_id}/validate/{student_code}?latitude=<LATITUDE>&longitude=<LONGITUDE>
+X-EduVision-Device-Token: <FRONTEND_RUNTIME_UUID>
 Content-Type: image/jpeg
 Body: raw image bytes
 ```
 
 A successful face scan records the first check-in. A later successful scan at least 15 minutes afterward records `fifteen_min_confirm`.
+
+The mobile app generates this device token in memory when the app runtime starts. After a successful face match, the backend binds that student's attendance row for the current class session to the token. Later requests for the same student in the same session must use the same token, and the same token cannot be reused for another student in that session. Starting a new class session creates new attendance rows and resets the binding.
 
 ## Common Responses
 
@@ -89,5 +93,7 @@ A successful face scan records the first check-in. A later successful scan at le
 - `403`: student is outside the session radius
 - `404`: teacher, student, or session was not found
 - `409`: session has no classroom location
+- `409`: student is already linked to another device for this session
+- `409`: device is already linked to another student for this session
 - `422`: missing or invalid request data
 - `500`: backend or database error
