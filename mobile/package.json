@@ -3,7 +3,7 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --go",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -24,10 +24,6 @@
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
-    "babel-preset-expo": "~54.0.0",
-    "glob": "7.2.3"
-  },
-  "overrides": {
-    "glob": "7.2.3"
+    "babel-preset-expo": "~54.0.0"
   }
 }

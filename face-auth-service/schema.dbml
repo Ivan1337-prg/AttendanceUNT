@@ -35,11 +35,13 @@ Table attendance {
   id uuid [pk, note: "Generated with gen_random_uuid()"]
   student_id uuid [not null, ref: > students.id]
   session_id uuid [not null, ref: > class_sessions.id]
+  device_token text
   first_check_in timestamp
   fifteen_min_confirm timestamp
   created_at timestamp [default: `CURRENT_TIMESTAMP`]
 
   indexes {
     (student_id, session_id) [unique]
+    (session_id, device_token) [unique, note: "Partial unique index where device_token is not null."]
   }
 }

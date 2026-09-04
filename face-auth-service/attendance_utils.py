@@ -1,6 +1,9 @@
 from fastapi import HTTPException
 from psycopg2.extras import execute_values
 
+DEVICE_TOKEN_MISMATCH_DETAIL = "student already linked to another device for this session"
+DEVICE_TOKEN_ALREADY_USED_DETAIL = "device already linked to another student for this session"
+
 
 def get_active_session_for_teacher(db_cursor, teacher_id: str):
     db_cursor.execute(
@@ -89,6 +92,38 @@ def get_student_by_code(db_cursor, student_code: str):
         raise HTTPException(status_code=400, detail="student has no stored face image")
 
     return student
+
+
+def ensure_attendance_device_token_matches(existing_device_token: str | None, incoming_device_token: str):
+    if existing_device_token and existing_device_token != incoming_device_token:
+        raise HTTPException(status_code=409, detail=DEVICE_TOKEN_MISMATCH_DETAIL)
+
+
+def ensure_device_token_available_for_student(db_cursor, session_id: str, student_id: str, incoming_device_token: str):
+    db_cursor.execute(
+        """
+        SELECT id
+        FROM attendance
+        WHERE session_id = %s
+          AND device_token = %s
+          AND student_id <> %s
+        LIMIT 1
+        """,
+        (session_id, incoming_device_token, student_id)
+    )
+    if db_cursor.fetchone():
+        raise HTTPException(status_code=409, detail=DEVICE_TOKEN_ALREADY_USED_DETAIL)
+
+
+def bind_attendance_device_token(db_cursor, attendance_id: str, incoming_device_token: str):
+    db_cursor.execute(
+        """
+        UPDATE attendance
+        SET device_token = %s
+        WHERE id = %s AND device_token IS NULL
+        """,
+        (incoming_device_token, attendance_id)
+    )
 
 
 def seed_attendance_for_session(db_cursor, session_id):
