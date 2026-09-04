@@ -31,13 +31,21 @@ Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
 ### 3. Student mobile app
 
+The mobile app runs in Expo Go for demo testing. The liveness step is a slower prompt flow before taking the face photo.
+
 ```bash
 cd mobile
 npm install
 npm start
 ```
 
-Scan the QR code with Expo Go. Use `npm run web` only when testing the mobile UI in a browser; use `npm start` for realistic phone camera testing.
+Scan the QR code with Expo Go. If Expo Go keeps loading and does not open the app, use the tunnel command:
+
+```bash
+npx expo start --go --tunnel -c
+```
+
+Use `npm run web` only when testing the mobile UI in a browser; use `npm start` for realistic phone camera testing.
 
 ## Environment variables
 
@@ -96,6 +104,7 @@ Restart Expo with `npx expo start -c` after changing the root `.env`. Restart Vi
 - Confirm connectivity from the phone by opening `http://YOUR_COMPUTER_IP:<PORT>/health`. Both values must match `API_SERVER_URL` and `PORT` in the root `.env`; for example, `http://10.22.145.70:5000/health`.
 - Your Mac's LAN IP can change after reconnecting to Wi-Fi.
 - `npm start` starts Expo for a phone or simulator; `npm run web` opens the mobile project in a browser.
+- Use `npx expo start --go --tunnel -c` when Expo Go can scan the QR code but stays on the loading screen.
 - Activating the Python virtual environment is optional. `.venv/bin/python main.py` uses it directly.
 - The backend must bind to `0.0.0.0` for another device to reach it; `main.py` already does this.
 - If the mobile app has a reachable deployed `API_SERVER_URL`, it will use that instead of the local fallback.
